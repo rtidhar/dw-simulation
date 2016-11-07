@@ -1,11 +1,16 @@
 print(''' ----------------------------------------------------
-NK model (Version 3.1)
+NK model (Version 3.2)
 
 ----------------------------------------------------
 
 By Ron Tidhar & Tim Ott - adapted from Maciej Workiewicz (2014)
 
 ----------------------------------------------------''')
+
+'''
+This script creates i (i=100) NK landscapes (with N and K chosen by the user)
+The NK landscapes are saved as a binary file (.npy)
+'''
 
 # *** IMPORTS ***
 
@@ -15,8 +20,6 @@ from time import time
 import os
 
 def main():    
-    start = time()  # this will tell me how much time one run takes
-
     # *** MODEL INPUTS ***
 
     # SYSTEM INPUT
@@ -25,29 +28,13 @@ def main():
     # USER INPUTS
 
     cwd = os.getcwd()
+    cwd += "/"
     print("Saving outputs to ", cwd)
 
     N = int(input("Enter a value for N: "))
 
-    print('''
-            Interaction matrix: 1 - random or 2 - custom
-            ''')
-    which_matrix = int(input("Choose interaction matrix (1 or 2): "))
-
-
-    if which_matrix == 1:
-        K = int(input("Input K (integer from 0 to N-1): "))
-        Int_matrix = matrix_rand(N, K)
-
-    elif which_matrix == 2:  # custom
-        K = 1  # remember to change that if you alter the pattern
-        '''
-        The diagonal of the interaction matrix is always 1
-        '''
-        Int_matrix = np.array([[1,1,0,0],\
-                               [1,1,0,0],\
-                               [0,0,1,1],\
-                               [0,0,1,1]])
+    K = int(input("Input K (integer from 0 to N-1): "))
+    Int_matrix = matrix_rand(N, K)
 
     # *** GENERAL VARIABLES AND OBJECTS ***
 
@@ -68,31 +55,6 @@ def main():
     '''
     This saves the landscape into a numpy binary file
     '''
-
-    elapsed_time = time() - start
-    print(' time: ' + str("%.2f" % elapsed_time) + ' sec')
-
-    print(NK[0])
-    dec = random_start(N)
-    curr_fit = NK[0, np.sum(dec*Power_key), 2*N]
-    new_dec = dec.copy()
-    new_dec[0] = abs(dec[0] - 1)
-    count = 0
-
-    print("starting = " + str(dec))
-
-    while(True):
-        count += 1
-        new_dec = local_search(N, NK[0], dec, Power_key)
-        print('old: ' + str(NK[0, np.sum(dec*Power_key), 2*N]) + '| new: ' + str(NK[0, np.sum(new_dec*Power_key), 2*N]))
-        if (all(new_dec == dec)):
-            break
-        else:
-            dec = new_dec
-    print("ending = " + str(dec))
-    print("Local Search took " + str(count) + " iterations")
-    #END OF LINE
-
 
 # FUNCTIONS AND INTERACTION MATRIX
 
@@ -135,6 +97,7 @@ def comb_and_values(N, NK_land, Power_key, inter_m):
     '''
     Calculates values for *all combinations* on the landscape.
     - the first N columns are for the combinations of N decision variables (DV)
+        (hence we have 2**N rows for the total number of possible combinations)
     - the second N columns are for the contribution values of each DV
     - the next valuer is for the total fit (avg of N contributions)
     - the last one is to find out whether it is the local peak (0 or 1)
@@ -154,7 +117,8 @@ def comb_and_values(N, NK_land, Power_key, inter_m):
         Comb_and_value[c1, 2*N] = np.mean(fit_1)
         c1 = c1 + 1
 
-    for c3 in np.arange(2**N):  # now let's see if it's a local peak
+    # now let's see if it's a local peak
+    for c3 in np.arange(2**N):  
         Comb_and_value[c3, 2*N+1] = 1  # assume it is
         for c4 in np.arange(N):  # check for the neighbourhood
             new_comb = Comb_and_value[c3, :N].copy()

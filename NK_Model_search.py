@@ -24,7 +24,7 @@ import sys
 def main():    
     try:
         NK = np.load(sys.argv[1])
-    except IndexError and FileNotFoundError:
+    except IndexError:
         print("ERROR: Please input a valie NK landscape (.npy file)")
         print("You can use NK_Model_basic.py to generate a set of landscapes")
         sys.exit(1)
@@ -48,21 +48,17 @@ def main():
     N = int(np.log2(NK.shape[1]))
     Power_key = powerkey(N)
 
-    dec = random_start(N)
-
-    print("starting = " + str(dec))
-
     num_steps = []
     final_fitness = []
     run_times = []
 
     for land in range(i):    
-        (steps, fit) = local_search(N, NK[land], dec, Power_key)
+        (steps, fit) = local_search(N, NK[land], Power_key)
 
         num_steps.append(steps)
         final_fitness.append(fit)
 
-    print("Local Search results for " + str(i) + " iterations:")
+    print("Local Search results for " + str(i) + " landscapes:")
     print("     Average # of iterations  = %.2f +/- %.2f (one std.dev)" % (np.mean(num_steps), np.std(num_steps)))
     print("     Average fitness          = %.2f +/- %.2f (one std.dev)" % (np.mean(final_fitness), np.std(final_fitness)))
 
@@ -87,7 +83,8 @@ def calc_fit(N, NK_land, inter_m, Current_position, Power_key):
         Fit_vector[ad1] = NK_land[np.sum(Current_position * inter_m[ad1] * Power_key), ad1]
     return(Fit_vector)
 
-def local_search(N, NK, dec, Power_key):
+def local_search(N, NK, Power_key):
+    dec = random_start(N)
     curr_fit = NK[int(np.sum(dec*Power_key)), 2*N]
     new_dec = dec.copy()
     new_dec[0] = abs(dec[0] - 1)

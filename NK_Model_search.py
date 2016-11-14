@@ -185,16 +185,15 @@ def search_domain(N, P, D, NK, Current_position, policy, Power_key):
         New_position[policy*D:(policy+1)*D] = pp
         if (fitness(New_position, N, NK, Power_key) > fitness(Max_position, N, NK, Power_key)):
             # We have found a better position          
-            return New_position
-            # Max_position = New_position
+            #return New_position
+            Max_position = New_position
     return Max_position
 
 def stepping_stone(N, P, D, NK, Current_position, policy, Power_key):
     Current_fit = fitness(Current_position, N, NK, Power_key)
     New_position = Current_position.copy()
 
-    stepping_stones = np.arange(P*D)
-    np.delete(stepping_stones, list(range(policy*D, (policy+1)*D)))
+    stepping_stones = np.delete(range(P*D), list(range(policy*D, (policy+1)*D)))
     np.random.shuffle(stepping_stones)
     dec = stepping_stones[0]
 
@@ -202,6 +201,7 @@ def stepping_stone(N, P, D, NK, Current_position, policy, Power_key):
             
     if (fitness(New_position, N, NK, Power_key) > Current_fit):
         # We have found a better position          
+        # print("Stepping stone: " + str(New_position) + str(fitness(New_position, N, NK, Power_key)) + " > " + str(Current_fit) + str(Current_position))
         return New_position
     else:
         return Current_position

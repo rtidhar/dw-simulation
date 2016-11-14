@@ -134,7 +134,7 @@ def local_step(N, NK, Current_position, Power_key):
     '''
 
     # first make sure we're not at a local peak (if yes, we're done)
-    if not NK[np.sum(Current_position*Power_key), 2*N+1]:
+    if not local_max(Current_position, N, NK, Power_key):
         Indexes = np.arange(N)
         np.random.shuffle(Indexes)
 
@@ -154,39 +154,52 @@ def local_step(N, NK, Current_position, Power_key):
     return Current_position
 
 def decision_weaving(Current_position, N, P, D, NK, Power_key):
-    new_dec = Current_position.copy()
-    new_dec[0] = abs(Current_position[0] - 1)
+    New_position = Current_position.copy()
+    New_position[0] = abs(Current_position[0] - 1)
+    unvisited_policies = np.arange(P)
     count = 0
 
     while(True):
-        unvisited_policies = np.arange(P)
         np.random.shuffle(unvisited_policies)
 
         for policy in unvisited_policies:
-            count += 1
-            new_dec = search_domain(N, P, D, NK, Current_position, policy, Power_key)
-            new_dec = stepping_stone(N, P, D, NK, new_dec, policy, Power_key)
-                
-        if NK[np.sum(new_dec*Power_key), 2*N+1]:
-            Current_position = new_dec
+            count += 2**D
+            New_position = search_domain(N, P, D, NK, Current_position, policy, Power_key)
+            New_position = stepping_stone(N, P, D, NK, New_position, policy, Power_key)
+            
+            Current_position = New_position.copy()
+
+        if all(Current_position == New_position):
             break
         else:
-            Current_position = new_dec
+            Current_position = New_position
 
-    return count, NK[np.sum(Current_position*Power_key), 2*N]    
+    #print("---------Final position = " + str(Current_position))
+    #print("FITNESS = " + str(fitness(Current_position, N, NK, Power_key)))
+    return count, fitness(Current_position, N, NK, Power_key)
 
 def search_domain(N, P, D, NK, Current_position, policy, Power_key):
     #Current_fit = NK[np.sum(Current_position*Power_key), 2*N]
     Max_position = Current_position.copy()
-    New_position = Current_position.copy()
+    
 
     for pp in itertools.product(range(2), repeat=D):
     # check for other decision sets within domain (policy can change)
+        New_position = Current_position.copy()
+        #print("Starting position = " + str(Current_position))
+        #print("Policy to change = ", policy)
+        #print("New policy = " + str(pp))
+
         New_position[policy*D:(policy+1)*D] = pp
+
+        #print("New position = " + str(New_position))
+
         if (fitness(New_position, N, NK, Power_key) > fitness(Max_position, N, NK, Power_key)):
             # We have found a better position          
             #return New_position
-            Max_position = New_position
+            Max_position = New_position.copy()
+
+    #print("Max position = " + str(Max_position))
     return Max_position
 
 def stepping_stone(N, P, D, NK, Current_position, policy, Power_key):
@@ -201,7 +214,7 @@ def stepping_stone(N, P, D, NK, Current_position, policy, Power_key):
             
     if (fitness(New_position, N, NK, Power_key) > Current_fit):
         # We have found a better position          
-        # print("Stepping stone: " + str(New_position) + str(fitness(New_position, N, NK, Power_key)) + " > " + str(Current_fit) + str(Current_position))
+        #print("Stepping stone: " + str(New_position) + str(fitness(New_position, N, NK, Power_key)) + " > " + str(Current_fit) + str(Current_position))
         return New_position
     else:
         return Current_position
@@ -219,6 +232,9 @@ def current_policy(P, D, decision):
 
 def fitness(position, N, NK, Power_key):
     return NK[np.sum(position*Power_key), 2*N]
+
+def local_max(position, N, NK, Power_key):
+    return NK[np.sum(position*Power_key), 2*N+1]
 
 def print_num_iterations(steps, indent = "     "):
     print(indent + "Average # of iterations  = %.2f +/- %.2f (one std.dev)" % (np.mean(steps), np.std(steps)))

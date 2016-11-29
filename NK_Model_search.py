@@ -20,6 +20,7 @@ import itertools
 from time import time
 import os
 import sys
+import scipy.stats as st
 
 def main():    
     try:
@@ -237,10 +238,24 @@ def local_max(position, N, NK, Power_key):
     return NK[np.sum(position*Power_key), 2*N+1]
 
 def print_num_iterations(steps, indent = "     "):
-    print(indent + "Average # of iterations  = %.2f +/- %.2f (one std.dev)" % (np.mean(steps), np.std(steps)))
+    print_str = indent + "Average # of iterations  = "
+    print_str += conf_interval(steps)
+
+    print(print_str)
 
 def print_fitness(fitness, indent = "     "):
-    print(indent + "Average fitness          = %.2f +/- %.2f (one std.dev)" % (np.mean(fitness), np.std(fitness)))
+    print_str = indent + "Average fitness          = "
+    print_str += conf_interval(fitness)
+
+    print(print_str)
+
+def conf_interval(values, delta=0.05):
+    z = st.norm.ppf(1-delta/2)
+    point_est = np.mean(values)    
+    hw = z * np.sqrt(np.var(values, ddof=1) / len(values))
+    c_low = point_est - hw
+    c_high = point_est + hw
+    return "%.4f with Confidence Interval [%.4f" %(point_est, c_low) +  ", %.4f" %c_high + "]"
 
 if __name__ == '__main__':
     main()

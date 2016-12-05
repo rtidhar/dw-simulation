@@ -21,6 +21,7 @@ from time import time
 import os
 import sys
 import scipy.stats as st
+import random
 
 def main():    
     try:
@@ -47,10 +48,11 @@ def main():
     '''
 
     runs = int(input("Input the number of runs per landscape: "))
+    print("Simulating...", end=" ")
     filename = str(sys.argv[1])
     P = int(filename[filename.find("P_")+2])
     D = int(filename[filename.find("D_")+2])
-
+    Domain_decision_set = domain_dec_set(D)
     i = NK.shape[0]
     N = int(np.log2(NK.shape[1]))
     Power_key = powerkey(N)
@@ -61,13 +63,12 @@ def main():
     num_dw_steps = []
     final_dw_fitness = []
 
-    for land in range(i):   
+    for land in range(i): 
         for _ in range(runs):
-
             start = random_start(N)
 
             (local_steps, local_fit) = local_search(start, N, NK[land], Power_key)
-            (dw_steps, dw_fit) = decision_weaving(start, N, P, D, NK[land], Power_key)
+            (dw_steps, dw_fit) = decision_weaving(start, N, P, D, NK[land], Power_key, Domain_decision_set)
 
             num_local_steps.append(local_steps)
             final_local_fitness.append(local_fit)
@@ -75,7 +76,7 @@ def main():
             num_dw_steps.append(dw_steps)
             final_dw_fitness.append(dw_fit)
 
-
+    print("Finished!")
     print("Local Search results for " + str(i) + " landscapes:")
     print_fitness(final_local_fitness)
     print_num_iterations(num_local_steps)
@@ -154,54 +155,46 @@ def local_step(N, NK, Current_position, Power_key):
     # If we're here, we must be at a local optimum
     return Current_position
 
-def decision_weaving(Current_position, N, P, D, NK, Power_key):
+def decision_weaving(Current_position, N, P, D, NK, Power_key, Domain_decision_set):
     New_position = Current_position.copy()
     New_position[0] = abs(Current_position[0] - 1)
     unvisited_policies = np.arange(P)
     count = 0
 
-    while(True):
-        np.random.shuffle(unvisited_policies)
+    np.random.shuffle(unvisited_policies)
+    for policy in unvisited_policies:
+        (New_position, steps) = search_domain(N, P, D, NK, Current_position, policy, Power_key, Domain_decision_set)
+        count += steps
+        Current_position = New_position.copy()
 
-        for policy in unvisited_policies:
-            count += 2**D
-            New_position = search_domain(N, P, D, NK, Current_position, policy, Power_key)
-            New_position = stepping_stone(N, P, D, NK, New_position, policy, Power_key)
-            
-            Current_position = New_position.copy()
-
-        if all(Current_position == New_position):
-            break
-        else:
-            Current_position = New_position
-
-    #print("---------Final position = " + str(Current_position))
-    #print("FITNESS = " + str(fitness(Current_position, N, NK, Power_key)))
     return count, fitness(Current_position, N, NK, Power_key)
 
-def search_domain(N, P, D, NK, Current_position, policy, Power_key):
-    #Current_fit = NK[np.sum(Current_position*Power_key), 2*N]
-    Max_position = Current_position.copy()
-    
+def search_domain(N, P, D, NK, Current_position, policy, Power_key, Domain_decision_set):
+    New_position = Current_position.copy()
+    random.shuffle(Domain_decision_set)
+    count = 0
+    #trials = 0
 
-    for pp in itertools.product(range(2), repeat=D):
+    for pp in Domain_decision_set:
     # check for other decision sets within domain (policy can change)
-        New_position = Current_position.copy()
-        #print("Starting position = " + str(Current_position))
-        #print("Policy to change = ", policy)
-        #print("New policy = " + str(pp))
+        if not (all(pp == Current_position[policy*D:(policy+1)*D])):
+            trials += 1
+            New_position = Current_position.copy()
+            New_position[policy*D:(policy+1)*D] = pp
 
-        New_position[policy*D:(policy+1)*D] = pp
+            if (fitness(New_position, N, NK, Power_key) > fitness(Current_position, N, NK, Power_key)):
+                # We have found a better position      
+                count += 1
+                Current_position = New_position.copy()
 
-        #print("New position = " + str(New_position))
+            New_position = stepping_stone(N, P, D, NK, Current_position, policy, Power_key)
+            if not (all(Current_position == New_position)):
+                count += 1
+                Current_position = New_position.copy()
+            if (count >= 3):
+                break
 
-        if (fitness(New_position, N, NK, Power_key) > fitness(Max_position, N, NK, Power_key)):
-            # We have found a better position          
-            #return New_position
-            Max_position = New_position.copy()
-
-    #print("Max position = " + str(Max_position))
-    return Max_position
+    return Current_position, count
 
 def stepping_stone(N, P, D, NK, Current_position, policy, Power_key):
     Current_fit = fitness(Current_position, N, NK, Power_key)
@@ -215,7 +208,6 @@ def stepping_stone(N, P, D, NK, Current_position, policy, Power_key):
             
     if (fitness(New_position, N, NK, Power_key) > Current_fit):
         # We have found a better position          
-        #print("Stepping stone: " + str(New_position) + str(fitness(New_position, N, NK, Power_key)) + " > " + str(Current_fit) + str(Current_position))
         return New_position
     else:
         return Current_position
@@ -255,7 +247,15 @@ def conf_interval(values, delta=0.05):
     hw = z * np.sqrt(np.var(values, ddof=1) / len(values))
     c_low = point_est - hw
     c_high = point_est + hw
-    return "%.4f with Confidence Interval [%.4f" %(point_est, c_low) +  ", %.4f" %c_high + "]"
+    return "%.4f with %.f%% Confidence Interval [%.4f" %(point_est, (1-delta)*100, c_low) +  ", %.4f" %c_high + "]"
+
+def domain_dec_set(D):
+    dec_set = []
+    for dec in itertools.product(range(2), repeat=D):
+        dec_set.append(dec)
+
+    random.shuffle(dec_set)
+    return dec_set
 
 if __name__ == '__main__':
     main()
